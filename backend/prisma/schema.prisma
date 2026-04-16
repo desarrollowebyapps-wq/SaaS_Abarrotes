@@ -1,0 +1,290 @@
+// Prisma schema - SaaS Abarrotes
+// Multi-tenant: cada entidad de negocio pertenece a una Tienda (tenant)
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============= TENANTS & USUARIOS =============
+
+model Tienda {
+  id                       String    @id @default(cuid())
+  nombre                   String
+  rfc                      String    @unique
+  domicilio                String
+  telefonos                String?
+  email                    String
+  logo_url                 String?
+
+  // Suscripción
+  plan_id                  String
+  plan                     Plan      @relation(fields: [plan_id], references: [id])
+  activa                   Boolean   @default(true)
+  fecha_inicio_suscripcion DateTime  @default(now())
+  fecha_fin_suscripcion    DateTime?
+
+  // Relaciones
+  usuarios                 Usuario[]
+  productos                Producto[]
+  categorias               Categoria[]
+  clientes                 Cliente[]
+  ventas                   Venta[]
+  proveedores              Proveedor[]
+  ordenes_compra           OrdenCompra[]
+
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  @@index([rfc])
+  @@index([activa])
+}
+
+model Plan {
+  id               String   @id @default(cuid())
+  nombre           String   @unique
+  precio_mensual   Int // En centavos: 29900 = $299
+
+  // Límites
+  max_usuarios     Int
+  max_productos    Int
+  max_clientes     Int
+  generar_reportes Boolean
+  soporte_email    Boolean
+
+  tiendas          Tienda[]
+  createdAt        DateTime @default(now())
+}
+
+model Usuario {
+  id           String    @id @default(cuid())
+  email        String
+  password     String // bcrypted
+  nombre       String
+  apellido     String?
+
+  tienda_id    String
+  tienda       Tienda    @relation(fields: [tienda_id], references: [id], onDelete: Cascade)
+
+  rol          String    @default("vendedor") // admin, vendedor, encargado
+  activo       Boolean   @default(true)
+
+  // Auditoría
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  ultimo_login DateTime?
+
+  @@unique([email, tienda_id])
+  @@index([tienda_id])
+  @@index([activo])
+}
+
+// ============= INVENTARIO =============
+
+model Categoria {
+  id          String     @id @default(cuid())
+  tienda_id   String
+  tienda      Tienda     @relation(fields: [tienda_id], references: [id], onDelete: Cascade)
+
+  nombre      String
+  descripcion String?
+
+  productos   Producto[]
+
+  createdAt   DateTime   @default(now())
+
+  @@unique([tienda_id, nombre])
+  @@index([tienda_id])
+}
+
+model Producto {
+  id              String                 @id @default(cuid())
+  tienda_id       String
+  tienda          Tienda                 @relation(fields: [tienda_id], references: [id], onDelete: Cascade)
+
+  codigo          String // Código de barras o SKU
+  nombre          String
+  descripcion     String?
+
+  precio_costo    Int // En centavos
+  precio_venta    Int // En centavos
+
+  stock_actual    Int                    @default(0)
+  stock_minimo    Int                    @default(5)
+
+  categoria_id    String
+  categoria       Categoria              @relation(fields: [categoria_id], references: [id])
+
+  unidad_medida   String                 @default("pieza") // pieza, kg, litro, etc
+  activo          Boolean                @default(true)
+
+  // Relaciones
+  detalles_venta  DetalleVenta[]
+  movimientos_inv MovimientoInventario[]
+  detalles_compra DetalleCompra[]
+
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  @@unique([tienda_id, codigo])
+  @@index([tienda_id])
+  @@index([categoria_id])
+}
+
+model MovimientoInventario {
+  id          String   @id @default(cuid())
+  producto_id String
+  producto    Producto @relation(fields: [producto_id], references: [id], onDelete: Cascade)
+
+  tipo        String // entrada, salida, ajuste, devolución
+  cantidad    Int
+
+  referencia  String? // venta_id, orden_compra_id, etc
+  motivo      String?
+
+  createdAt   DateTime @default(now())
+
+  @@index([producto_id])
+  @@index([tipo])
+}
+
+// ============= CLIENTES Y VENTAS =============
+
+model Cliente {
+  id             String   @id @default(cuid())
+  tienda_id      String
+  tienda         Tienda   @relation(fields: [tienda_id], references: [id], onDelete: Cascade)
+
+  nombre         String
+  telefono       String?
+  email          String?
+  domicilio      String?
+
+  tipo           String   @default("normal") // normal, frecuente, credito
+  credito_limite Int      @default(0)
+  credito_usado  Int      @default(0)
+
+  ventas         Venta[]
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([tienda_id])
+  @@index([tipo])
+}
+
+model Venta {
+  id            String         @id @default(cuid())
+  tienda_id     String
+  tienda        Tienda         @relation(fields: [tienda_id], references: [id], onDelete: Cascade)
+
+  usuario_id    String?
+  cliente_id    String?
+  cliente       Cliente?       @relation(fields: [cliente_id], references: [id])
+
+  numero_ticket String
+
+  total_bruto   Int // En centavos
+  descuento     Int            @default(0)
+  impuesto      Int // IVA 16%
+  total_neto    Int
+
+  metodo_pago   String // efectivo, tarjeta, transferencia, credito
+  estado        String         @default("completada") // completada, cancelada
+
+  notas         String?
+
+  detalles      DetalleVenta[]
+
+  createdAt     DateTime       @default(now())
+
+  @@index([tienda_id])
+  @@index([cliente_id])
+  @@index([createdAt])
+}
+
+model DetalleVenta {
+  id              String   @id @default(cuid())
+  venta_id        String
+  venta           Venta    @relation(fields: [venta_id], references: [id], onDelete: Cascade)
+
+  producto_id     String
+  producto        Producto @relation(fields: [producto_id], references: [id])
+
+  cantidad        Int
+  precio_unitario Int // Precio al que se vendió
+  descuento_item  Int      @default(0)
+  subtotal        Int
+
+  createdAt       DateTime @default(now())
+
+  @@index([venta_id])
+}
+
+// ============= COMPRAS Y PROVEEDORES =============
+
+model Proveedor {
+  id             String        @id @default(cuid())
+  tienda_id      String
+  tienda         Tienda        @relation(fields: [tienda_id], references: [id], onDelete: Cascade)
+
+  nombre         String
+  contacto       String?
+  telefono       String?
+  email          String?
+  domicilio      String?
+
+  dias_credito   Int           @default(0)
+  activo         Boolean       @default(true)
+
+  ordenes_compra OrdenCompra[]
+
+  createdAt      DateTime      @default(now())
+
+  @@index([tienda_id])
+}
+
+model OrdenCompra {
+  id            String          @id @default(cuid())
+  tienda_id     String
+  tienda        Tienda          @relation(fields: [tienda_id], references: [id], onDelete: Cascade)
+
+  proveedor_id  String
+  proveedor     Proveedor       @relation(fields: [proveedor_id], references: [id])
+
+  numero_orden  String
+  total         Int // En centavos
+
+  estado        String          @default("pendiente") // pendiente, recibida, cancelada
+  fecha_entrega DateTime?
+
+  detalles      DetalleCompra[]
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@unique([tienda_id, numero_orden])
+  @@index([tienda_id])
+  @@index([proveedor_id])
+}
+
+model DetalleCompra {
+  id              String      @id @default(cuid())
+  orden_id        String
+  orden           OrdenCompra @relation(fields: [orden_id], references: [id], onDelete: Cascade)
+
+  producto_id     String
+  producto        Producto    @relation(fields: [producto_id], references: [id])
+
+  cantidad        Int
+  precio_unitario Int // Lo que pagamos
+  subtotal        Int
+
+  createdAt       DateTime    @default(now())
+
+  @@index([orden_id])
+}
