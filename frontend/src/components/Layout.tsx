@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   Package,
   ShoppingCart,
-  Users,
   BarChart2,
   LogOut,
   Store,
@@ -12,9 +11,8 @@ import {
 
 const nav = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/inventario", icon: Package, label: "Inventario" },
   { to: "/pos", icon: ShoppingCart, label: "Punto de Venta" },
-  { to: "/clientes", icon: Users, label: "Clientes" },
+  { to: "/inventario", icon: Package, label: "Inventario" },
   { to: "/reportes", icon: BarChart2, label: "Reportes" },
 ];
 

@@ -5,7 +5,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Inventario from "./pages/Inventario";
 import POS from "./pages/POS";
-import Clientes from "./pages/Clientes";
+import Reportes from "./pages/Reportes";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuthStore } from "./store/authStore";
@@ -36,8 +36,8 @@ export default function App() {
       <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
       <Route path="/inventario" element={<AppLayout><Inventario /></AppLayout>} />
       <Route path="/pos" element={<AppLayout><POS /></AppLayout>} />
-      <Route path="/clientes" element={<AppLayout><Clientes /></AppLayout>} />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/reportes" element={<AppLayout><Reportes /></AppLayout>} />
+<Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }

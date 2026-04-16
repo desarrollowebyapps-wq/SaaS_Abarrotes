@@ -37,6 +37,8 @@ import authRoutes from "./presentation/routes/auth.routes.js";
 import inventarioRoutes from "./presentation/routes/inventario.routes.js";
 import ventasRoutes from "./presentation/routes/ventas.routes.js";
 import clientesRoutes from "./presentation/routes/clientes.routes.js";
+import dashboardRoutes from "./presentation/routes/dashboard.routes.js";
+import reportesRoutes from "./presentation/routes/reportes.routes.js";
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
@@ -46,6 +48,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/inventario", inventarioRoutes);
 app.use("/api/ventas", ventasRoutes);
 app.use("/api/clientes", clientesRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/reportes", reportesRoutes);
 
 // ── 404 ────────────────────────────────────────────────────
 app.use((_req, res) => {
