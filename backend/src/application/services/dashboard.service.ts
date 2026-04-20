@@ -12,10 +12,10 @@ export async function getDashboard(tiendaId: string) {
     ventasHoy,
     ingresosMes,
     totalProductos,
-    stockBajoCount,
+    stockBajoRaw,
     totalClientes,
     ultimasVentas,
-    productosStockBajo,
+    productosStockBajoRaw,
     ventasPorDia,
   ] = await Promise.all([
     // Ventas del día
@@ -34,14 +34,13 @@ export async function getDashboard(tiendaId: string) {
     // Total productos activos
     prisma.producto.count({ where: { tienda_id: tiendaId, activo: true } }),
 
-    // Productos con stock bajo
-    prisma.producto.count({
-      where: {
-        tienda_id: tiendaId,
-        activo: true,
-        stock_actual: { lte: 5 },
-      },
-    }),
+    // Productos con stock bajo (compara stock_actual vs su propio stock_minimo)
+    prisma.$queryRaw<[{ count: bigint }]>`
+      SELECT COUNT(*)::int as count FROM "Producto"
+      WHERE tienda_id = ${tiendaId}
+        AND activo = true
+        AND stock_actual <= stock_minimo
+    `,
 
     // Total clientes
     prisma.cliente.count({ where: { tienda_id: tiendaId } }),
@@ -63,20 +62,18 @@ export async function getDashboard(tiendaId: string) {
       },
     }),
 
-    // Top 5 productos con stock bajo
-    prisma.producto.findMany({
-      where: { tienda_id: tiendaId, activo: true, stock_actual: { lte: 5 } },
-      orderBy: { stock_actual: "asc" },
-      take: 5,
-      select: {
-        id: true,
-        nombre: true,
-        stock_actual: true,
-        stock_minimo: true,
-        unidad_medida: true,
-        categoria: { select: { nombre: true } },
-      },
-    }),
+    // Top 5 productos con stock bajo (stock_actual <= su propio stock_minimo)
+    prisma.$queryRaw<Array<{ id: string; nombre: string; stock_actual: number; stock_minimo: number; unidad_medida: string; categoria_nombre: string }>>`
+      SELECT p.id, p.nombre, p.stock_actual, p.stock_minimo, p.unidad_medida,
+             c.nombre as categoria_nombre
+      FROM "Producto" p
+      JOIN "Categoria" c ON c.id = p.categoria_id
+      WHERE p.tienda_id = ${tiendaId}
+        AND p.activo = true
+        AND p.stock_actual <= p.stock_minimo
+      ORDER BY p.stock_actual ASC
+      LIMIT 5
+    `,
 
     // Ventas agrupadas por día (últimos 7 días)
     prisma.venta.findMany({
@@ -107,6 +104,16 @@ export async function getDashboard(tiendaId: string) {
       ventasMap[key].ingresos += v.total_neto;
     }
   }
+
+  const stockBajoCount = Number(stockBajoRaw[0]?.count ?? 0);
+  const productosStockBajo = productosStockBajoRaw.map((p) => ({
+    id: p.id,
+    nombre: p.nombre,
+    stock_actual: Number(p.stock_actual),
+    stock_minimo: Number(p.stock_minimo),
+    unidad_medida: p.unidad_medida,
+    categoria: { nombre: p.categoria_nombre },
+  }));
 
   return {
     kpis: {

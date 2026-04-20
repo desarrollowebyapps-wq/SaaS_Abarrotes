@@ -69,3 +69,39 @@ export async function updateProducto(id: string, body: Partial<Parameters<typeof
 export async function deleteProducto(id: string) {
   await api.delete(`/inventario/productos/${id}`);
 }
+
+export interface Movimiento {
+  id: string;
+  tipo: string;
+  cantidad: number;
+  motivo: string | null;
+  referencia: string | null;
+  createdAt: string;
+  producto: { nombre: string; codigo: string; unidad_medida: string };
+}
+
+export interface MovimientosResponse {
+  movimientos: Movimiento[];
+  total: number;
+  pagina: number;
+  paginas: number;
+}
+
+export async function getMovimientos(params?: {
+  producto_id?: string;
+  tipo?: string;
+  desde?: string;
+  hasta?: string;
+  pagina?: number;
+}): Promise<MovimientosResponse> {
+  const { data } = await api.get("/inventario/movimientos", { params });
+  return data;
+}
+
+export async function ajustarStock(
+  id: string,
+  body: { nueva_cantidad: number; motivo: string; notas?: string }
+): Promise<Producto> {
+  const { data } = await api.post(`/inventario/productos/${id}/ajuste`, body);
+  return data;
+}

@@ -105,3 +105,79 @@ export async function deleteProducto(tiendaId: string, id: string) {
 
   return prisma.producto.update({ where: { id }, data: { activo: false } });
 }
+
+export interface MovimientosFiltros {
+  producto_id?: string;
+  tipo?: string;
+  desde?: string;
+  hasta?: string;
+  pagina?: number;
+  limite?: number;
+}
+
+export async function getMovimientos(tiendaId: string, filtros: MovimientosFiltros = {}) {
+  const { producto_id, tipo, desde, hasta, pagina = 1, limite = 30 } = filtros;
+
+  const where: Record<string, unknown> = {
+    producto: { tienda_id: tiendaId },
+  };
+
+  if (producto_id) where.producto_id = producto_id;
+  if (tipo) where.tipo = tipo;
+  if (desde || hasta) {
+    where.createdAt = {
+      ...(desde ? { gte: new Date(desde) } : {}),
+      ...(hasta ? { lte: new Date(hasta + "T23:59:59") } : {}),
+    };
+  }
+
+  const [total, movimientos] = await Promise.all([
+    prisma.movimientoInventario.count({ where }),
+    prisma.movimientoInventario.findMany({
+      where,
+      include: { producto: { select: { nombre: true, codigo: true, unidad_medida: true } } },
+      orderBy: { createdAt: "desc" },
+      skip: (pagina - 1) * limite,
+      take: limite,
+    }),
+  ]);
+
+  return { movimientos, total, pagina, limite, paginas: Math.ceil(total / limite) };
+}
+
+export interface AjusteStockDTO {
+  nueva_cantidad: number;
+  motivo: string; // merma, robo, error_conteo, entrada, otro
+  notas?: string;
+}
+
+export async function ajustarStock(tiendaId: string, productoId: string, dto: AjusteStockDTO) {
+  const producto = await prisma.producto.findFirst({
+    where: { id: productoId, tienda_id: tiendaId, activo: true },
+  });
+  if (!producto) throw new Error("Producto no encontrado");
+
+  if (dto.nueva_cantidad < 0) throw new Error("La cantidad no puede ser negativa");
+
+  const diferencia = dto.nueva_cantidad - producto.stock_actual;
+
+  return prisma.$transaction(async (tx) => {
+    const actualizado = await tx.producto.update({
+      where: { id: productoId },
+      data: { stock_actual: dto.nueva_cantidad },
+      include: { categoria: { select: { id: true, nombre: true } } },
+    });
+
+    await tx.movimientoInventario.create({
+      data: {
+        producto_id: productoId,
+        tipo: "ajuste",
+        cantidad: diferencia,
+        motivo: dto.motivo,
+        referencia: dto.notas ?? null,
+      },
+    });
+
+    return actualizado;
+  });
+}

@@ -7,13 +7,15 @@ import {
   BarChart2,
   LogOut,
   Store,
+  Users,
 } from "lucide-react";
 
 const nav = [
-  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/pos", icon: ShoppingCart, label: "Punto de Venta" },
-  { to: "/inventario", icon: Package, label: "Inventario" },
-  { to: "/reportes", icon: BarChart2, label: "Reportes" },
+  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", roles: null },
+  { to: "/pos", icon: ShoppingCart, label: "Punto de Venta", roles: null },
+  { to: "/inventario", icon: Package, label: "Inventario", roles: null },
+  { to: "/reportes", icon: BarChart2, label: "Reportes", roles: null },
+  { to: "/usuarios", icon: Users, label: "Usuarios", roles: ["admin"] },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -44,22 +46,24 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Links */}
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          {nav.map(({ to, icon: Icon, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                  isActive
-                    ? "bg-blue-50 text-blue-700 font-medium"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                }`
-              }
-            >
-              <Icon size={16} />
-              {label}
-            </NavLink>
-          ))}
+          {nav
+            .filter(({ roles }) => !roles || roles.includes(usuario?.rol ?? ""))
+            .map(({ to, icon: Icon, label }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                    isActive
+                      ? "bg-blue-50 text-blue-700 font-medium"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  }`
+                }
+              >
+                <Icon size={16} />
+                {label}
+              </NavLink>
+            ))}
         </nav>
 
         {/* Usuario */}

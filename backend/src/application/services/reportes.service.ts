@@ -79,41 +79,42 @@ export async function getTopProductos(
   hasta: string
 ) {
   const inicio = new Date(desde);
-  const fin = new Date(hasta);
-  fin.setHours(23, 59, 59, 999);
+  const fin = new Date(hasta + "T23:59:59");
 
-  const detalles = await prisma.detalleVenta.findMany({
-    where: {
-      venta: {
-        tienda_id: tiendaId,
-        estado: "completada",
-        createdAt: { gte: inicio, lte: fin },
-      },
-    },
-    include: {
-      producto: { select: { id: true, nombre: true, codigo: true, categoria: { select: { nombre: true } } } },
-    },
-  });
+  // Agrupación directa en la BD — evita cargar todos los registros en memoria
+  type TopRow = {
+    id: string;
+    nombre: string;
+    categoria: string;
+    cantidad: bigint;
+    ingresos: bigint;
+  };
 
-  // Agrupar por producto
-  const map: Record<string, { nombre: string; categoria: string; cantidad: number; ingresos: number }> = {};
+  const rows = await prisma.$queryRaw<TopRow[]>`
+    SELECT
+      p.id,
+      p.nombre,
+      c.nombre AS categoria,
+      SUM(dv.cantidad)::bigint  AS cantidad,
+      SUM(dv.subtotal)::bigint  AS ingresos
+    FROM "DetalleVenta" dv
+    JOIN "Venta"    v ON v.id = dv.venta_id
+    JOIN "Producto" p ON p.id = dv.producto_id
+    JOIN "Categoria" c ON c.id = p.categoria_id
+    WHERE v.tienda_id = ${tiendaId}
+      AND v.estado    = 'completada'
+      AND v."createdAt" >= ${inicio}
+      AND v."createdAt" <= ${fin}
+    GROUP BY p.id, p.nombre, c.nombre
+    ORDER BY cantidad DESC
+    LIMIT 10
+  `;
 
-  for (const d of detalles) {
-    const pid = d.producto_id;
-    if (!map[pid]) {
-      map[pid] = {
-        nombre: d.producto.nombre,
-        categoria: d.producto.categoria.nombre,
-        cantidad: 0,
-        ingresos: 0,
-      };
-    }
-    map[pid].cantidad += d.cantidad;
-    map[pid].ingresos += d.subtotal;
-  }
-
-  return Object.entries(map)
-    .map(([id, data]) => ({ id, ...data }))
-    .sort((a, b) => b.cantidad - a.cantidad)
-    .slice(0, 10);
+  return rows.map((r) => ({
+    id: r.id,
+    nombre: r.nombre,
+    categoria: r.categoria,
+    cantidad: Number(r.cantidad),
+    ingresos: Number(r.ingresos),
+  }));
 }

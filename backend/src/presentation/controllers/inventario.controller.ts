@@ -72,3 +72,30 @@ export async function deleteProducto(req: Request, res: Response): Promise<void>
     res.status(400).json({ error: msg });
   }
 }
+
+export async function listMovimientos(req: Request, res: Response): Promise<void> {
+  try {
+    const { producto_id, tipo, desde, hasta, pagina, limite } = req.query;
+    const data = await svc.getMovimientos(req.user!.tienda_id, {
+      producto_id: producto_id as string,
+      tipo: tipo as string,
+      desde: desde as string,
+      hasta: hasta as string,
+      pagina: pagina ? Number(pagina) : 1,
+      limite: limite ? Number(limite) : 30,
+    });
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: "Error al obtener movimientos" });
+  }
+}
+
+export async function ajustarStock(req: Request, res: Response): Promise<void> {
+  try {
+    const data = await svc.ajustarStock(req.user!.tienda_id, req.params.id, req.body);
+    res.json(data);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Error";
+    res.status(msg.includes("no encontrado") ? 404 : 400).json({ error: msg });
+  }
+}

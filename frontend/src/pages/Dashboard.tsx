@@ -7,16 +7,10 @@ import {
 } from "lucide-react";
 import { getDashboard } from "../api/dashboard";
 import type { DashboardData } from "../api/dashboard";
+import { formatPeso, formatHora } from "../utils/format";
 
-function fmt(centavos: number) {
-  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(
-    centavos / 100
-  );
-}
-
-function fmtHora(iso: string) {
-  return new Date(iso).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
-}
+const fmt = formatPeso;
+const fmtHora = formatHora;
 
 const METODO_BADGE: Record<string, string> = {
   efectivo: "bg-green-50 text-green-700",

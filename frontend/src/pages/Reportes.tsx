@@ -4,12 +4,9 @@ import {
 } from "recharts";
 import { TrendingUp, Package, ShoppingBag, AlertTriangle } from "lucide-react";
 import * as api from "../api/reportes";
+import { formatPeso } from "../utils/format";
 
-function fmt(centavos: number) {
-  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(
-    centavos / 100
-  );
-}
+const fmt = formatPeso;
 
 function hoy() {
   return new Date().toISOString().slice(0, 10);

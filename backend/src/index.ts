@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
+import compression from "compression";
 import { rateLimit } from "express-rate-limit";
 
 const app = express();
@@ -10,6 +11,7 @@ const PORT = process.env.PORT ?? 3000;
 
 // ── Seguridad ──────────────────────────────────────────────
 app.use(helmet());
+app.use(compression());
 
 app.use(
   cors({
@@ -39,6 +41,7 @@ import ventasRoutes from "./presentation/routes/ventas.routes.js";
 import clientesRoutes from "./presentation/routes/clientes.routes.js";
 import dashboardRoutes from "./presentation/routes/dashboard.routes.js";
 import reportesRoutes from "./presentation/routes/reportes.routes.js";
+import usuariosRoutes from "./presentation/routes/usuarios.routes.js";
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
@@ -50,6 +53,7 @@ app.use("/api/ventas", ventasRoutes);
 app.use("/api/clientes", clientesRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/reportes", reportesRoutes);
+app.use("/api/usuarios", usuariosRoutes);
 
 // ── 404 ────────────────────────────────────────────────────
 app.use((_req, res) => {

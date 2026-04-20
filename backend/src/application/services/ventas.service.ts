@@ -1,4 +1,5 @@
 import { prisma } from "../../lib/prisma.js";
+import { IVA_RATE } from "../../lib/config.js";
 
 export interface ItemVenta {
   producto_id: string;
@@ -25,7 +26,6 @@ function generarTicket(): string {
   return `T${fecha_str}-${aleatorio}`;
 }
 
-const IVA_RATE = 0.16;
 
 export async function createVenta(tiendaId: string, usuarioId: string, dto: CreateVentaDTO) {
   if (!dto.items || dto.items.length === 0) {
@@ -93,23 +93,24 @@ export async function createVenta(tiendaId: string, usuarioId: string, dto: Crea
       },
     });
 
-    // Descontar stock y registrar movimientos
-    for (const item of dto.items) {
-      await tx.producto.update({
-        where: { id: item.producto_id },
-        data: { stock_actual: { decrement: item.cantidad } },
-      });
-
-      await tx.movimientoInventario.create({
-        data: {
-          producto_id: item.producto_id,
-          tipo: "salida",
-          cantidad: item.cantidad,
-          referencia: venta.id,
-          motivo: `Venta ${venta.numero_ticket}`,
-        },
-      });
-    }
+    // Descontar stock y registrar movimientos en paralelo
+    await Promise.all(
+      dto.items.flatMap((item) => [
+        tx.producto.update({
+          where: { id: item.producto_id },
+          data: { stock_actual: { decrement: item.cantidad } },
+        }),
+        tx.movimientoInventario.create({
+          data: {
+            producto_id: item.producto_id,
+            tipo: "salida",
+            cantidad: -item.cantidad,
+            referencia: venta.id,
+            motivo: `Venta ${venta.numero_ticket}`,
+          },
+        }),
+      ])
+    );
 
     return venta;
   });

@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Search, Plus, Minus, Trash2, ShoppingCart, CheckCircle } from "lucide-react";
 import * as inventarioApi from "../api/inventario";
 import * as ventasApi from "../api/ventas";
 import type { Producto } from "../api/inventario";
+import { formatPeso } from "../utils/format";
 
 interface CartItem {
   producto: Producto;
@@ -11,12 +12,7 @@ interface CartItem {
 
 const METODOS_PAGO = ["efectivo", "tarjeta", "transferencia"];
 const IVA = 0.16;
-
-function fmt(centavos: number) {
-  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(
-    centavos / 100
-  );
-}
+const fmt = formatPeso;
 
 export default function POS() {
   const [busqueda, setBusqueda] = useState("");
@@ -72,12 +68,14 @@ export default function POS() {
     setCarrito((prev) => prev.filter((i) => i.producto.id !== id));
   }
 
-  // Totales
-  const subtotal = carrito.reduce((acc, i) => acc + i.producto.precio_venta * i.cantidad, 0);
-  const descuentoCentavos = Math.round(descuento * 100);
-  const base = subtotal - descuentoCentavos;
-  const iva = Math.round(base * IVA);
-  const total = base + iva;
+  // Totales — memoizados para no recalcular en cada render
+  const { subtotal, descuentoCentavos, iva, total } = useMemo(() => {
+    const subtotal = carrito.reduce((acc, i) => acc + i.producto.precio_venta * i.cantidad, 0);
+    const descuentoCentavos = Math.round(descuento * 100);
+    const base = subtotal - descuentoCentavos;
+    const iva = Math.round(base * IVA);
+    return { subtotal, descuentoCentavos, iva, total: base + iva };
+  }, [carrito, descuento]);
 
   async function cobrar() {
     if (carrito.length === 0) return;
